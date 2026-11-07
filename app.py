@@ -1,3 +1,5 @@
+"""PhaseShift · Frequency-domain image steganography · Streamlit UI."""
+
 from __future__ import annotations
 
 import math
@@ -16,247 +18,739 @@ from phaseshift.engine import (
 )
 from phaseshift.visuals import difference_figure, image_figure, spectrum_figure
 
+# ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="PhaseShift | Steganography Lab",
-    page_icon="🌌",
+    page_title="PhaseShift",
+    page_icon="⬡",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
+# ── Design system CSS ─────────────────────────────────────────────────────────
 st.markdown(
     """
-    <style>
-      :root { color-scheme: dark; }
-      .stApp { background: radial-gradient(ellipse at top left, #182746 0%, #0b1220 48%, #080d18 100%); }
-      [data-testid="stSidebar"] { background: #0b1220; border-right: 1px solid #24324c; }
-      .hero { padding: 1.35rem 1.5rem; border: 1px solid #2b3b59; border-radius: 20px;
-        background: linear-gradient(120deg, rgba(30,48,82,.94), rgba(13,22,39,.90)); }
-      .eyebrow { color: #8db5ff; text-transform: uppercase; letter-spacing: .16em;
-        font-size: .75rem; font-weight: 700; }
-      .muted { color: #a9b8d0; }
-      .section { border: 1px solid #263550; border-radius: 16px; padding: 1rem 1.1rem;
-        background: rgba(14, 24, 42, .7); }
-      div[data-testid="stMetric"] { border: 1px solid #2b3b59; border-radius: 14px;
-        padding: 12px 14px; background: rgba(18, 31, 53, .8); }
-      div.stButton > button[kind="primary"] { border-radius: 10px; font-weight: 700; }
-    </style>
-    """,
+<style>
+/* ── Reset & App background ── */
+.stApp { background-color: #111318 !important; }
+.stApp > header { background-color: #111318 !important; border-bottom: 1px solid #2a2f3a; }
+
+/* ── Sidebar ── */
+[data-testid="stSidebar"] { background-color: #13161c !important; border-right: 1px solid #2a2f3a !important; }
+[data-testid="stSidebar"] > div { padding-top: 0 !important; }
+
+/* ── Sidebar brand ── */
+.ps-sidebar-brand { display: flex; align-items: center; gap: 10px; padding: 20px 16px 16px; border-bottom: 1px solid #2a2f3a; margin-bottom: 8px; }
+.ps-logo { width: 32px; height: 32px; background: #3b82f6; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: white; letter-spacing: -0.5px; flex-shrink: 0; }
+.ps-brand-name { font-size: 15px; font-weight: 700; color: #e8eaed; line-height: 1.2; }
+.ps-brand-sub { font-size: 10.5px; color: #5a6170; line-height: 1.4; }
+
+/* ── Radio navigation ── */
+[data-testid="stSidebar"] .stRadio > div { gap: 2px !important; }
+[data-testid="stSidebar"] .stRadio label { padding: 8px 12px !important; border-radius: 7px !important; color: #9aa0b2 !important; font-size: 13.5px !important; cursor: pointer !important; transition: all 0.15s !important; }
+[data-testid="stSidebar"] .stRadio label:hover { background: #1e2229 !important; color: #e8eaed !important; }
+[data-testid="stSidebar"] .stRadio [data-checked="true"] label,
+[data-testid="stSidebar"] .stRadio input:checked + div { background: rgba(59,130,246,0.12) !important; color: #3b82f6 !important; border-radius: 7px; }
+
+/* ── Main content area ── */
+.main .block-container { padding-top: 28px !important; padding-left: 32px !important; padding-right: 32px !important; max-width: 1200px; }
+
+/* ── Page header ── */
+.ps-page-header { padding-bottom: 20px; border-bottom: 1px solid #2a2f3a; margin-bottom: 24px; }
+.ps-page-header h1 { font-size: 22px !important; font-weight: 700 !important; color: #e8eaed !important; margin: 0 0 4px 0 !important; letter-spacing: -0.3px; }
+.ps-page-header p { font-size: 13.5px; color: #9aa0b2; margin: 0; }
+
+/* ── Cards ── */
+.ps-card { background: #1a1d23; border: 1px solid #2a2f3a; border-radius: 10px; padding: 16px 18px; }
+.ps-card h4 { font-size: 13px; font-weight: 600; color: #e8eaed; margin: 0 0 8px 0; }
+.ps-card p { font-size: 12.5px; color: #9aa0b2; margin: 0; line-height: 1.6; }
+
+/* ── Pipeline visualization ── */
+.ps-pipeline { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.ps-pipeline-step { background: #1a1d23; border: 1px solid #2a2f3a; border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 500; color: #e8eaed; white-space: nowrap; }
+.ps-pipeline-step.accent { border-color: #3b82f6; color: #3b82f6; background: rgba(59,130,246,0.08); }
+.ps-pipeline-arrow { color: #2a2f3a; font-size: 16px; }
+
+/* ── Section labels ── */
+.ps-section-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: #5a6170; text-transform: uppercase; margin-bottom: 10px; }
+
+/* ── Metric cards ── */
+.ps-metric-row { display: flex; gap: 12px; }
+.ps-metric-card { flex: 1; background: #1a1d23; border: 1px solid #2a2f3a; border-radius: 9px; padding: 14px 16px; }
+.ps-metric-card .ps-metric-label { font-size: 10.5px; color: #5a6170; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+.ps-metric-card .ps-metric-value { font-size: 20px; font-weight: 700; color: #e8eaed; font-family: 'JetBrains Mono', monospace; line-height: 1.2; }
+.ps-metric-card .ps-metric-sub { font-size: 11px; color: #5a6170; margin-top: 2px; }
+
+/* ── Empty state ── */
+.ps-empty-state { background: #1a1d23; border: 1px dashed #2a2f3a; border-radius: 10px; padding: 40px 20px; text-align: center; }
+.ps-empty-state p { color: #5a6170; font-size: 13px; margin: 0; }
+
+/* ── Output box ── */
+.ps-output-box { background: #13161c; border: 1px solid #2a2f3a; border-radius: 9px; padding: 16px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; color: #e8eaed; line-height: 1.7; white-space: pre-wrap; word-break: break-word; min-height: 80px; }
+
+/* ── Status badges ── */
+.ps-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 4px; font-size: 11.5px; font-weight: 600; }
+.ps-badge.success { background: rgba(34,197,94,0.12); color: #22c55e; border: 1px solid rgba(34,197,94,0.2); }
+.ps-badge.error { background: rgba(239,68,68,0.12); color: #ef4444; border: 1px solid rgba(239,68,68,0.2); }
+
+/* ── Buttons ── */
+.stButton > button { border-radius: 8px !important; font-size: 13.5px !important; font-weight: 600 !important; transition: all 0.15s !important; }
+.stButton > button[kind="primary"] { background: #3b82f6 !important; border: 1px solid #3b82f6 !important; color: white !important; }
+.stButton > button[kind="primary"]:hover { background: #2563eb !important; border-color: #2563eb !important; }
+.stButton > button[kind="secondary"] { background: #1a1d23 !important; border: 1px solid #2a2f3a !important; color: #e8eaed !important; }
+.stButton > button[kind="secondary"]:hover { border-color: #353b47 !important; background: #22262e !important; }
+
+/* ── File uploader ── */
+[data-testid="stFileUploader"] { background: #1a1d23 !important; border: 1px dashed #2a2f3a !important; border-radius: 9px !important; }
+[data-testid="stFileUploader"]:hover { border-color: #3b82f6 !important; }
+
+/* ── Text area ── */
+.stTextArea textarea { background: #1a1d23 !important; border: 1px solid #2a2f3a !important; border-radius: 8px !important; color: #e8eaed !important; font-size: 13.5px !important; }
+.stTextArea textarea:focus { border-color: #3b82f6 !important; box-shadow: 0 0 0 2px rgba(59,130,246,0.15) !important; }
+
+/* ── Slider ── */
+.stSlider [data-baseweb="slider"] { color: #3b82f6 !important; }
+
+/* ── Tabs ── */
+.stTabs [data-baseweb="tab-list"] { background: transparent !important; border-bottom: 1px solid #2a2f3a !important; gap: 0 !important; }
+.stTabs [data-baseweb="tab"] { background: transparent !important; color: #9aa0b2 !important; font-size: 13px !important; font-weight: 500 !important; border-bottom: 2px solid transparent !important; padding: 8px 16px !important; }
+.stTabs [aria-selected="true"] { color: #e8eaed !important; border-bottom-color: #3b82f6 !important; }
+
+/* ── Metrics ── */
+[data-testid="stMetric"] { background: #1a1d23 !important; border: 1px solid #2a2f3a !important; border-radius: 9px !important; padding: 14px 16px !important; }
+[data-testid="stMetricLabel"] { color: #9aa0b2 !important; font-size: 11px !important; }
+[data-testid="stMetricValue"] { color: #e8eaed !important; font-size: 22px !important; font-family: 'JetBrains Mono', monospace !important; }
+
+/* ── Alerts ── */
+[data-testid="stAlert"] { border-radius: 8px !important; border-left-width: 3px !important; }
+
+/* ── Divider ── */
+hr { border-color: #2a2f3a !important; }
+
+/* ── Code blocks ── */
+.stCode { background: #13161c !important; border: 1px solid #2a2f3a !important; border-radius: 8px !important; }
+
+/* ── Expander ── */
+.streamlit-expanderHeader { background: #1a1d23 !important; border: 1px solid #2a2f3a !important; border-radius: 8px !important; color: #e8eaed !important; font-size: 13.5px !important; font-weight: 500 !important; }
+.streamlit-expanderContent { border: 1px solid #2a2f3a !important; border-top: none !important; background: #161920 !important; }
+
+/* ── Sidebar version footer ── */
+.ps-sidebar-footer { padding: 12px 16px; font-size: 10.5px; color: #5a6170; border-top: 1px solid #2a2f3a; margin-top: 16px; }
+
+/* ── Column labels ── */
+.ps-col-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; color: #5a6170; text-transform: uppercase; padding-bottom: 10px; border-bottom: 1px solid #2a2f3a; margin-bottom: 16px; }
+</style>
+""",
     unsafe_allow_html=True,
 )
 
-st.markdown(
-    """
-    <div class="hero">
-      <div class="eyebrow">Frequency-domain image steganography</div>
-      <h1 style="margin:.35rem 0 .25rem 0;">🌌 PhaseShift</h1>
-      <p class="muted" style="margin:0;">Hide a message in an image's frequency coefficients, inspect the transformation,
-      and verify recovery from the saved PNG.</p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+# ── Helper functions ──────────────────────────────────────────────────────────
+PAGES = ["Overview", "Encode", "Decode", "Analysis", "Documentation"]
 
-with st.sidebar:
-    st.markdown("## 🌌 PhaseShift")
-    st.caption("Steganography Lab · Version 1.0")
-    page = st.radio(
-        "Workspace",
-        ["Overview", "Encode message", "Decode message", "Algorithm & metrics"],
-        label_visibility="collapsed",
+
+def page_header(title: str, description: str) -> None:
+    st.markdown(
+        f'<div class="ps-page-header"><h1>{title}</h1><p>{description}</p></div>',
+        unsafe_allow_html=True,
     )
-    st.divider()
-    st.markdown("#### Quick guide")
-    st.caption("1. Upload a cover image")
-    st.caption("2. Encode a short message")
-    st.caption("3. Download the PNG")
-    st.caption("4. Decode using the same strength")
-    st.divider()
-    st.caption("PNG is recommended. JPEG recompression can corrupt hidden data.")
 
-if page == "Overview":
-    st.markdown("### Your steganography workspace")
-    st.write("PhaseShift demonstrates how an image can be represented in the frequency domain and how selected Fourier coefficients can carry a text payload.")
-    cards = st.columns(3)
-    with cards[0]:
-        st.markdown('<div class="section"><h3>🖼️ Cover image</h3><p class="muted">Load and inspect a grayscale image before encoding.</p></div>', unsafe_allow_html=True)
-    with cards[1]:
-        st.markdown('<div class="section"><h3>〰️ Frequency lab</h3><p class="muted">Explore the shifted FFT spectrum and the reconstructed stego image.</p></div>', unsafe_allow_html=True)
-    with cards[2]:
-        st.markdown('<div class="section"><h3>🔎 Recovery check</h3><p class="muted">Extract the payload and validate its SHA-256 checksum.</p></div>', unsafe_allow_html=True)
-    st.markdown("### Workflow")
-    st.code("Cover image → Grayscale matrix → 2D FFT → Coefficient embedding → Inverse FFT → PNG → Extraction → Checksum", language="text")
-    st.info("This is an educational demonstration. Hiding a message is not the same as encrypting it.")
-    st.markdown("### Start here")
-    if st.button("Open the encoding workspace", type="primary"):
-        st.session_state["requested_page"] = "Encode message"
+
+def section_label(text: str) -> None:
+    st.markdown(f'<div class="ps-section-label">{text}</div>', unsafe_allow_html=True)
+
+
+def metric_card(label: str, value: str, sub: str = "") -> str:
+    sub_html = f'<div class="ps-metric-sub">{sub}</div>' if sub else ""
+    return (
+        f'<div class="ps-metric-card">'
+        f'<div class="ps-metric-label">{label}</div>'
+        f'<div class="ps-metric-value">{value}</div>'
+        f"{sub_html}"
+        f"</div>"
+    )
+
+
+def metrics_row(cards: list[tuple]) -> None:
+    """Render a row of metric cards. Each tuple: (label, value, sub)."""
+    inner = "".join(metric_card(*c) for c in cards)
+    st.markdown(f'<div class="ps-metric-row">{inner}</div>', unsafe_allow_html=True)
+
+
+def empty_state(message: str) -> None:
+    st.markdown(
+        f'<div class="ps-empty-state"><p>{message}</p></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def back_button() -> None:
+    if st.button("← Back", key=f"back_{st.session_state.get('page','')}", use_container_width=False):
+        st.session_state["page"] = "Overview"
         st.rerun()
 
-elif page == "Encode message":
-    st.markdown("### 01 · Encode a message")
-    st.write("Select an image, type a message, and generate a downloadable PNG.")
-    col_input, col_method = st.columns([1.15, 0.85], gap="large")
 
-    with col_input:
-        uploaded = st.file_uploader("Cover image", type=["png", "jpg", "jpeg", "bmp", "tif", "tiff"], key="encode_upload")
-        message = st.text_area("Secret message", placeholder="Enter the message to hide…", height=130, max_chars=20000)
+# ── Sidebar ───────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown(
+        """
+<div class="ps-sidebar-brand">
+  <div class="ps-logo">PS</div>
+  <div>
+    <div class="ps-brand-name">PhaseShift</div>
+    <div class="ps-brand-sub">Frequency-Domain Steganography</div>
+  </div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+    if "page" not in st.session_state:
+        st.session_state["page"] = "Overview"
+
+    current_index = PAGES.index(st.session_state["page"]) if st.session_state["page"] in PAGES else 0
+
+    nav = st.radio(
+        "Navigation",
+        PAGES,
+        index=current_index,
+        label_visibility="collapsed",
+    )
+    if nav != st.session_state["page"]:
+        st.session_state["page"] = nav
+        st.rerun()
+
+    st.markdown(
+        '<div class="ps-sidebar-footer">v1.0.0 · Python · NumPy · Streamlit</div>',
+        unsafe_allow_html=True,
+    )
+
+# ── Handle programmatic navigation ───────────────────────────────────────────
+if "requested_page" in st.session_state:
+    st.session_state["page"] = st.session_state.pop("requested_page")
+
+# ── Page routing ──────────────────────────────────────────────────────────────
+current_page = st.session_state.get("page", "Overview")
+
+
+# ── Page: Overview ────────────────────────────────────────────────────────────
+def render_overview() -> None:
+    st.markdown(
+        """
+<div style="display:flex; flex-direction:column; align-items:center;
+            text-align:center; padding: 60px 20px 32px;">
+
+  <!-- Eyebrow label -->
+  <div style="font-size:11px; font-weight:700; letter-spacing:0.2em; color:#3b82f6;
+              text-transform:uppercase; margin-bottom:28px;">
+    Frequency-Domain Steganography
+  </div>
+
+  <!-- Brand logo title -->
+  <div style="display:inline-flex; align-items:center; gap:16px; margin-bottom:36px;">
+    <div style="width:52px; height:52px; background:#3b82f6; border-radius:12px;
+                display:flex; align-items:center; justify-content:center;
+                font-size:22px; font-weight:900; color:white; letter-spacing:-1px;
+                flex-shrink:0;">
+      PS
+    </div>
+    <div style="font-size:68px; font-weight:800; letter-spacing:-3px; line-height:1;
+                background: linear-gradient(90deg, #e8eaed 0%, #3b82f6 100%);
+                -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+                background-clip: text;">
+      PhaseShift
+    </div>
+  </div>
+
+  <!-- Description box -->
+  <div style="width:100%; max-width:780px;
+              background: linear-gradient(135deg, #1a1d23 0%, #1e2535 100%);
+              border:1px solid #2e3d57; border-radius:12px;
+              padding:28px 36px; text-align:left;
+              box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+      <div style="width:6px; height:6px; border-radius:50%; background:#3b82f6;"></div>
+      <span style="font-size:11px; font-weight:700; letter-spacing:0.1em;
+                   color:#3b82f6; text-transform:uppercase;">About this project</span>
+    </div>
+    <p style="font-size:15.5px; color:#9aa0b2; line-height:1.9; margin:0;">
+      PhaseShift embeds secret text into images using the
+      <strong style="color:#e8eaed;">2D Fast Fourier Transform</strong>.
+      Rather than editing pixels directly, it works in the frequency domain —
+      subtly shifting selected coefficients to encode a hidden bit stream.
+      The result is a lossless PNG that looks identical to the original,
+      but carries a payload recoverable only with the correct embedding strength
+      and verified by a <strong style="color:#9aa0b2;">SHA-256 checksum</strong>.
+    </p>
+  </div>
+
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+    c1, c2, c3, c4 = st.columns(4, gap="small")
+    with c1:
+        if st.button("Encode", use_container_width=True):
+            st.session_state["page"] = "Encode"
+            st.rerun()
+    with c2:
+        if st.button("Decode", use_container_width=True):
+            st.session_state["page"] = "Decode"
+            st.rerun()
+    with c3:
+        if st.button("Analysis", use_container_width=True):
+            st.session_state["page"] = "Analysis"
+            st.rerun()
+    with c4:
+        if st.button("Documentation", use_container_width=True):
+            st.session_state["page"] = "Documentation"
+            st.rerun()
+
+
+# ── Page: Encode ─────────────────────────────────────────────────────────────
+def render_encode() -> None:
+    back_button()
+    page_header("Encode", "Hide a secret message inside a cover image using frequency-domain embedding.")
+
+    col_in, col_out = st.columns([1.1, 0.9], gap="large")
+
+    with col_in:
+        st.markdown('<div class="ps-col-label">Input</div>', unsafe_allow_html=True)
+
+        uploaded = st.file_uploader(
+            "Cover Image",
+            type=["png", "jpg", "jpeg", "bmp", "tif", "tiff"],
+            key="encode_upload",
+        )
+
+        preview_array: np.ndarray | None = None
+        if uploaded is not None:
+            try:
+                preview_array = load_grayscale_image(uploaded.getvalue())
+                h, w = preview_array.shape
+                st.image(preview_array, caption=f"{w}×{h}px · Grayscale", width="stretch")
+            except PhaseShiftError as exc:
+                st.error(str(exc))
+                preview_array = None
+
+        message = st.text_area(
+            "Secret Message",
+            placeholder="Enter the message to hide…",
+            height=120,
+            max_chars=20000,
+            key="encode_message",
+        )
+        if message:
+            byte_count = len(message.encode("utf-8"))
+            st.caption(f"{len(message)} chars · {byte_count} bytes")
+
         strength = st.slider(
-            "Embedding strength",
+            "Embedding Strength",
             min_value=0.01,
             max_value=0.20,
             value=0.05,
             step=0.01,
-            help="The decoder must use the same value. Larger values usually improve recovery stability but can increase distortion.",
+            key="encode_strength",
+            help="Higher values improve recovery stability but may increase distortion. The decoder must use the same value.",
         )
-        if uploaded is not None:
-            try:
-                preview = load_grayscale_image(uploaded.getvalue())
-                payload_max = max_payload_bytes(*preview.shape)
-                st.caption(f"Image: {preview.shape[1]} × {preview.shape[0]} px · Approx. max payload: {payload_max:,} bytes")
-            except PhaseShiftError as exc:
-                st.error(str(exc))
-        run_encode = st.button("✨ Encode & analyze", type="primary", use_container_width=True)
 
-    with col_method:
-        st.markdown('<div class="section"><h4>What the engine does</h4><ol><li>Converts the image to grayscale.</li><li>Computes a 2D FFT and shifts the spectrum.</li><li>Encodes UTF-8 bits in selected coefficient pairs.</li><li>Runs the inverse FFT and saves lossless PNG.</li><li>Reopens the PNG and attempts recovery.</li></ol></div>', unsafe_allow_html=True)
-        st.warning("Do not use JPEG as the final stego output. Lossy compression can damage frequency coefficients.")
+        if preview_array is not None:
+            h, w = preview_array.shape
+            cap = max_payload_bytes(h, w)
+            st.caption(f"Capacity: ~{cap:,} bytes available")
 
-    if run_encode:
-        if uploaded is None:
-            st.error("Upload a cover image first.")
-        elif not message:
-            st.error("Enter a non-empty secret message.")
+        run_encode = st.button(
+            "⬡ Encode & Analyze",
+            type="primary",
+            use_container_width=True,
+            key="btn_encode",
+        )
+
+    with col_out:
+        st.markdown('<div class="ps-col-label">Output</div>', unsafe_allow_html=True)
+
+        # Handle encode button press
+        if run_encode:
+            if uploaded is None:
+                st.error("Upload a cover image first.")
+            elif not message:
+                st.error("Enter a non-empty secret message.")
+            else:
+                try:
+                    with st.spinner("Running FFT, embedding payload, verifying recovery…"):
+                        result = encode_message(uploaded.getvalue(), message, strength)
+                    st.session_state["encode_result"] = result
+                except PhaseShiftError as exc:
+                    st.error(str(exc))
+                except Exception as exc:
+                    st.error(f"Unexpected error: {exc}")
+
+        result = st.session_state.get("encode_result")
+
+        if result is None:
+            empty_state("Encode a message to see the stego image here.")
         else:
-            try:
-                with st.spinner("Running FFT, embedding payload, reconstructing image and verifying recovery…"):
-                    result = encode_message(uploaded.getvalue(), message, strength)
-                st.session_state["encode_result"] = result
-                st.session_state["encode_filename"] = "phaseshift_stego.png"
-            except PhaseShiftError as exc:
-                st.error(str(exc))
-            except Exception as exc:
-                st.error(f"Unexpected error: {exc}")
+            m = result.metrics
 
-    result = st.session_state.get("encode_result")
-    if result is not None:
-        st.divider()
-        st.markdown("### Results")
-        metrics = result.metrics
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Payload", f"{metrics['payload_bytes']:,} bytes")
-        m2.metric("PSNR", "∞" if math.isinf(metrics["psnr_db"]) else f"{metrics['psnr_db']:.2f} dB")
-        m3.metric("Pixels changed", f"{metrics['changed_pixel_percent']:.1f}%")
-        m4.metric("Checksum", "PASS" if result.checksum_ok and metrics["exact_recovery"] else "FAIL")
-        if result.checksum_ok and metrics["exact_recovery"]:
-            st.success("The saved PNG successfully recovered the original message and passed checksum verification.")
-        else:
-            st.error("The recovery test did not pass. Try a different strength or a larger image.")
+            # Stego image preview
+            st.image(result.stego, caption="Stego image (PNG)", width="stretch")
 
-        tab_visual, tab_metrics, tab_recovery = st.tabs(["Visual comparison", "Technical metrics", "Recovered message"])
-        with tab_visual:
-            c1, c2 = st.columns(2)
-            with c1:
-                st.pyplot(image_figure(result.cover, "Original cover"), use_container_width=True)
-                st.pyplot(spectrum_figure(result.original_spectrum, "Cover · shifted FFT spectrum"), use_container_width=True)
-            with c2:
-                st.pyplot(image_figure(result.stego, "Stego image"), use_container_width=True)
-                st.pyplot(spectrum_figure(result.stego_spectrum, "Stego · shifted FFT spectrum"), use_container_width=True)
-            st.pyplot(difference_figure(result.cover, result.stego), use_container_width=True)
-            st.caption("The difference view amplifies pixel changes. Its brightness is not the same as perceived visual distortion.")
-        with tab_metrics:
-            table_rows = [
-                ("Image dimensions", f"{metrics['width']} × {metrics['height']}"),
-                ("Total pixels", f"{metrics['pixels']:,}"),
-                ("Message bytes (UTF-8)", f"{metrics['payload_bytes']:,}"),
-                ("Packet bytes including header/checksum", f"{metrics['packet_bytes']:,}"),
-                ("Embedded bits", f"{metrics['bits_embedded']:,}"),
-                ("Approximate coefficient capacity", f"{metrics['capacity_bits']:,} bits"),
-                ("Capacity used", f"{metrics['capacity_percent']:.2f}%"),
-                ("Embedding strength", f"{metrics['strength']:.2f}"),
-                ("Quantization step", f"{metrics['quantization_step']:.2f}"),
-                ("Mean squared error (MSE)", f"{metrics['mse']:.4f}"),
-                ("Peak signal-to-noise ratio (PSNR)", "∞" if math.isinf(metrics["psnr_db"]) else f"{metrics['psnr_db']:.3f} dB"),
-                ("Changed pixels", f"{metrics['changed_pixel_percent']:.2f}%"),
-            ]
-            st.table({"Metric": [r[0] for r in table_rows], "Value": [r[1] for r in table_rows]})
-            st.caption("Capacity is an approximate upper bound based on the selected coefficient region. Actual robustness depends on the image and strength.")
-        with tab_recovery:
-            st.markdown("**Recovered text**")
-            st.code(result.recovered_message, language="text")
-            st.write("Exact match:", "Yes" if metrics["exact_recovery"] else "No")
-            st.write("Checksum valid:", "Yes" if result.checksum_ok else "No")
+            # Metrics row
+            psnr_val = "∞ dB" if math.isinf(m["psnr_db"]) else f"{m['psnr_db']:.2f} dB"
+            chk_hex = f"{m['payload_bytes']:,}"
+            metrics_row([
+                ("Payload", f"{m['payload_bytes']:,}", "bytes"),
+                ("PSNR", psnr_val, "quality"),
+                ("Changed Px", f"{m['changed_pixel_percent']:.1f}%", "vs cover"),
+                ("Capacity", f"{m['capacity_percent']:.1f}%", "used"),
+            ])
 
-        download_col, info_col = st.columns([1, 2])
-        with download_col:
+            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+            # Download button
             st.download_button(
-                "⬇️ Download stego PNG",
+                "⬇ Download Stego PNG",
                 data=result.stego_png,
                 file_name=f"phaseshift_stego_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png",
                 mime="image/png",
                 type="primary",
                 use_container_width=True,
             )
-        with info_col:
-            st.caption("Keep the embedding strength value. You will need the same value in the Decode workspace.")
 
-elif page == "Decode message":
-    st.markdown("### 02 · Decode and verify")
-    st.write("Upload the PNG generated by PhaseShift. Select the same embedding strength used during encoding.")
-    decode_file = st.file_uploader("Stego image", type=["png", "jpg", "jpeg", "bmp", "tif", "tiff"], key="decode_upload")
-    decode_strength = st.slider("Embedding strength used during encoding", 0.01, 0.20, 0.05, 0.01, key="decode_strength")
-    if st.button("🔎 Extract message", type="primary", use_container_width=True):
-        if decode_file is None:
-            st.error("Upload a stego image first.")
-        else:
+            # Status banner
+            if result.checksum_ok and m.get("exact_recovery"):
+                st.success("Checksum verified — message recovered successfully from the PNG.")
+            else:
+                st.error("Recovery check failed. Try a larger image or different strength.")
+
+            # Tabs
+            tab_vis, tab_met, tab_rec = st.tabs(["Visuals", "Metrics", "Recovery"])
+
+            with tab_vis:
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.pyplot(image_figure(result.cover, "Cover image"), use_container_width=True)
+                    st.pyplot(
+                        spectrum_figure(result.original_spectrum, "Cover spectrum"),
+                        use_container_width=True,
+                    )
+                with c2:
+                    st.pyplot(image_figure(result.stego, "Stego image"), use_container_width=True)
+                    st.pyplot(
+                        spectrum_figure(result.stego_spectrum, "Stego spectrum"),
+                        use_container_width=True,
+                    )
+                st.pyplot(difference_figure(result.cover, result.stego), use_container_width=True)
+                st.caption("Pixel differences are amplified for visibility.")
+
+            with tab_met:
+                table_rows = [
+                    ("Image dimensions", f"{m['width']} × {m['height']}"),
+                    ("Total pixels", f"{m['pixels']:,}"),
+                    ("Message bytes (UTF-8)", f"{m['payload_bytes']:,}"),
+                    ("Packet bytes (header + checksum)", f"{m['packet_bytes']:,}"),
+                    ("Embedded bits", f"{m['bits_embedded']:,}"),
+                    ("Coefficient capacity", f"{m['capacity_bits']:,} bits"),
+                    ("Capacity used", f"{m['capacity_percent']:.2f}%"),
+                    ("Embedding strength", f"{m['strength']:.2f}"),
+                    ("Quantization step (δ)", f"{m['quantization_step']:.2f}"),
+                    ("MSE", f"{m['mse']:.4f}"),
+                    ("PSNR", "∞" if math.isinf(m["psnr_db"]) else f"{m['psnr_db']:.3f} dB"),
+                    ("Changed pixels", f"{m['changed_pixel_percent']:.2f}%"),
+                    ("Checksum", "PASS" if result.checksum_ok else "FAIL"),
+                    ("Exact recovery", "Yes" if m.get("exact_recovery") else "No"),
+                ]
+                st.table({"Metric": [r[0] for r in table_rows], "Value": [r[1] for r in table_rows]})
+
+            with tab_rec:
+                st.markdown("**Recovered message**")
+                st.code(result.recovered_message, language="text")
+                chk_badge = (
+                    '<span class="ps-badge success">✓ Checksum Verified</span>'
+                    if result.checksum_ok
+                    else '<span class="ps-badge error">✗ Checksum Failed</span>'
+                )
+                match_badge = (
+                    '<span class="ps-badge success">✓ Exact Match</span>'
+                    if m.get("exact_recovery")
+                    else '<span class="ps-badge error">✗ Mismatch</span>'
+                )
+                st.markdown(
+                    f"<div style='display:flex;gap:8px;margin-top:8px'>{chk_badge}{match_badge}</div>",
+                    unsafe_allow_html=True,
+                )
+
+
+# ── Page: Decode ──────────────────────────────────────────────────────────────
+def render_decode() -> None:
+    back_button()
+    page_header("Decode", "Upload a PhaseShift stego image to extract the hidden message.")
+
+    col_in, col_out = st.columns([1, 1], gap="large")
+
+    with col_in:
+        st.markdown('<div class="ps-col-label">Upload</div>', unsafe_allow_html=True)
+
+        decode_file = st.file_uploader(
+            "Stego Image",
+            type=["png", "jpg", "jpeg", "bmp", "tif", "tiff"],
+            key="decode_upload",
+        )
+
+        if decode_file is not None:
             try:
-                with st.spinner("Reading frequency coefficients and validating checksum…"):
-                    decoded = extract_message(decode_file.getvalue(), decode_strength)
-                st.session_state["decode_result"] = decoded
+                prev = load_grayscale_image(decode_file.getvalue())
+                st.image(prev, caption="Uploaded stego image", width="stretch")
             except PhaseShiftError as exc:
                 st.error(str(exc))
-            except Exception as exc:
-                st.error(f"Unexpected error: {exc}")
 
-    decoded = st.session_state.get("decode_result")
-    if decoded is not None:
-        st.divider()
-        st.markdown("### Extraction result")
-        st.metric("Recovered payload", f"{decoded.payload_bytes:,} bytes")
-        st.code(decoded.message, language="text")
-        if decoded.checksum_ok:
-            st.success("Checksum verified. The recovered payload is internally consistent.")
+        decode_strength = st.slider(
+            "Embedding Strength",
+            min_value=0.01,
+            max_value=0.20,
+            value=0.05,
+            step=0.01,
+            key="decode_strength",
+        )
+        st.caption("Use the same strength value that was used during encoding.")
+
+        run_decode = st.button(
+            "⬡ Extract Message",
+            type="primary",
+            use_container_width=True,
+            key="btn_decode",
+        )
+
+    with col_out:
+        st.markdown('<div class="ps-col-label">Result</div>', unsafe_allow_html=True)
+
+        if run_decode:
+            if decode_file is None:
+                st.error("Upload a stego image first.")
+            else:
+                try:
+                    with st.spinner("Reading frequency coefficients and validating checksum…"):
+                        decoded = extract_message(decode_file.getvalue(), decode_strength)
+                    st.session_state["decode_result"] = decoded
+                except PhaseShiftError as exc:
+                    st.error(str(exc))
+                    st.session_state.pop("decode_result", None)
+                except Exception as exc:
+                    st.error(f"Unexpected error: {exc}")
+                    st.session_state.pop("decode_result", None)
+
+        decoded = st.session_state.get("decode_result")
+
+        if decoded is None:
+            empty_state("Extract a message to see results here.")
         else:
-            st.error("Checksum mismatch. The image may have been altered or the strength may be wrong.")
-        st.caption(f"Image dimensions: {decoded.image_shape[1]} × {decoded.image_shape[0]} px")
+            # Metrics
+            h, w = decoded.image_shape
+            chk_badge_cls = "success" if decoded.checksum_ok else "error"
+            chk_badge_txt = "✓ Verified" if decoded.checksum_ok else "✗ Failed"
 
-else:
-    st.markdown("### 03 · Algorithm & metrics")
-    st.markdown("#### Processing pipeline")
-    st.code(
-        "Text → UTF-8 bytes → Header + length + checksum → Binary bits\n"
-        "Image → Grayscale matrix → 2D FFT → fftshift\n"
-        "Bits → Quantization-index modulation of coefficient pairs\n"
-        "Modified spectrum → ifftshift → Inverse FFT → rounded grayscale PNG\n"
-        "Saved PNG → FFT → bit extraction → UTF-8 message + checksum verification",
-        language="text",
+            metrics_row([
+                ("Payload", f"{decoded.payload_bytes:,}", "bytes"),
+                ("Image", f"{w}×{h}", "pixels"),
+            ])
+
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+            st.markdown(
+                f'<div style="margin-bottom:12px"><span class="ps-badge {chk_badge_cls}">{chk_badge_txt}</span></div>',
+                unsafe_allow_html=True,
+            )
+
+            # Message output
+            section_label("Extracted Message")
+            safe_msg = decoded.message.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            st.markdown(
+                f'<div class="ps-output-box">{safe_msg}</div>',
+                unsafe_allow_html=True,
+            )
+            st.caption("Select all text above to copy.")
+
+            if not decoded.checksum_ok:
+                st.warning(
+                    "Checksum failed — the recovered content may be corrupted. "
+                    "Verify the embedding strength matches the one used during encoding, "
+                    "and that the image has not been edited or re-compressed."
+                )
+
+
+# ── Page: Analysis ────────────────────────────────────────────────────────────
+def render_analysis() -> None:
+    back_button()
+    page_header(
+        "Analysis",
+        "Frequency-domain comparison between cover and stego images.",
     )
-    st.markdown("#### Core concepts")
-    with st.expander("What is the 2D FFT?"):
-        st.write("The two-dimensional Fast Fourier Transform represents an image as spatial-frequency coefficients. Low frequencies describe slowly changing image structure; higher frequencies represent finer detail and edges. `fftshift` moves the low-frequency center to the middle of the displayed spectrum.")
-    with st.expander("Why modify conjugate coefficient pairs?"):
-        st.write("For a real-valued image, Fourier coefficients have conjugate symmetry. Updating a coefficient and its conjugate partner consistently helps the inverse transform remain real-valued.")
-    with st.expander("What is quantization-index modulation?"):
-        st.write("A coefficient's real component is moved to one of two interleaved quantization lattices. The lattice choice represents a 0 or 1. The decoder quantizes the coefficient and reads the parity to estimate the bit.")
-    with st.expander("What do MSE and PSNR mean?"):
-        st.write("MSE is the average squared pixel difference between the cover and stego images. PSNR expresses the error on a logarithmic decibel scale. Higher PSNR generally indicates lower pixel error, but neither metric alone guarantees that the image looks identical.")
-    with st.expander("What does the checksum prove?"):
-        st.write("A truncated SHA-256 checksum detects many accidental extraction errors. It is not encryption, authentication, or proof that an image has not been tampered with.")
-    st.warning("This implementation is for academic demonstration. It has not been independently audited and should not be used to protect sensitive messages.")
-    st.markdown("#### Engineering notes")
-    st.write("- Use PNG to avoid lossy compression during the encode/decode cycle.")
-    st.write("- The message is encoded as UTF-8, so non-English text can be represented.")
-    st.write("- The decoder needs the same embedding strength used during encoding.")
-    st.write("- The algorithm is sensitive to resizing, cropping, editing, and recompression.")
-    st.write("- Test multiple image textures and sizes before reporting experimental results.")
 
-st.markdown("---")
-st.caption("PhaseShift · Academic prototype · Python / NumPy / Pillow / Matplotlib / Streamlit")
+    result = st.session_state.get("encode_result")
+
+    if result is None:
+        empty_state("No encoded result available. Run an encode first to see analysis.")
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+        if st.button("Go to Encode", type="primary"):
+            st.session_state["requested_page"] = "Encode"
+            st.rerun()
+        return
+
+    m = result.metrics
+
+    # Metrics row
+    psnr_val = "∞ dB" if math.isinf(m["psnr_db"]) else f"{m['psnr_db']:.2f} dB"
+    metrics_row([
+        ("MSE", f"{m['mse']:.4f}", "mean squared error"),
+        ("PSNR", psnr_val, "signal-to-noise ratio"),
+        ("Changed Pixels", f"{m['changed_pixel_percent']:.2f}%", "vs original"),
+        ("Capacity Used", f"{m['capacity_percent']:.2f}%", f"{m['bits_embedded']:,} bits"),
+    ])
+
+    st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
+
+    # Image Comparison
+    section_label("Image Comparison")
+    c1, c2 = st.columns(2, gap="medium")
+    with c1:
+        st.pyplot(image_figure(result.cover, "Original Cover Image"), use_container_width=True)
+    with c2:
+        st.pyplot(image_figure(result.stego, "Stego Image"), use_container_width=True)
+
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+    # Frequency Spectrum
+    section_label("Frequency Spectrum")
+    c1, c2 = st.columns(2, gap="medium")
+    with c1:
+        st.pyplot(
+            spectrum_figure(result.original_spectrum, "Cover · Shifted FFT Spectrum"),
+            use_container_width=True,
+        )
+    with c2:
+        st.pyplot(
+            spectrum_figure(result.stego_spectrum, "Stego · Shifted FFT Spectrum"),
+            use_container_width=True,
+        )
+
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+    # Pixel Difference
+    section_label("Pixel Difference")
+    st.pyplot(difference_figure(result.cover, result.stego), use_container_width=True)
+    st.caption(
+        "The difference map amplifies pixel changes for visibility. "
+        "Brightness here does not correspond to perceived visual distortion."
+    )
+
+
+# ── Page: Documentation ───────────────────────────────────────────────────────
+def render_documentation() -> None:
+    back_button()
+    page_header("Documentation", "How PhaseShift works — technical reference and usage guide.")
+
+    with st.expander("What is PhaseShift?", expanded=True):
+        st.markdown(
+            """
+PhaseShift is an **educational prototype** for frequency-domain image steganography.
+It embeds a UTF-8 text message into an image's Fourier frequency coefficients, producing
+a stego image that is visually indistinguishable from the original.
+
+> **Important:** This is an academic demonstration. It does not encrypt messages and should
+> not be used to protect sensitive information.
+"""
+        )
+
+    with st.expander("How Frequency-Domain Steganography Works"):
+        st.markdown(
+            """
+The **2D Fast Fourier Transform (FFT)** decomposes an image from pixel space into a
+representation of spatial frequencies. Low-frequency components capture broad structure;
+high-frequency components capture fine edges and texture.
+
+By slightly modifying the *amplitude* of selected frequency coefficients, a bit pattern
+can be embedded. Since the changes are distributed across the frequency spectrum and
+kept below the threshold of human visual perception, the stego image looks identical
+to the original.
+"""
+        )
+
+    with st.expander("The 2D FFT Process"):
+        st.markdown("The encoding pipeline applied to each image:")
+        st.code(
+            "1. Load image → convert to grayscale (uint8 numpy array)\n"
+            "2. Cast to float64 → apply numpy.fft.fft2()\n"
+            "3. Apply numpy.fft.fftshift() → DC at center\n"
+            "4. Select coefficient positions (avoid DC / near-DC region)\n"
+            "5. Modify real parts using QIM\n"
+            "6. ifftshift() → ifft2() → clip & round → save as PNG",
+            language="text",
+        )
+
+    with st.expander("Message Encoding — Packet Structure"):
+        st.markdown("Each message is wrapped in a binary packet before embedding:")
+        st.code(
+            "[ MAGIC (4 bytes) ]  PSH1\n"
+            "[ LENGTH (4 bytes) ]  Big-endian UTF-8 payload length\n"
+            "[ PAYLOAD (N bytes) ] UTF-8 encoded message\n"
+            "[ CHECKSUM (4 bytes)] First 4 bytes of SHA-256(payload)",
+            language="text",
+        )
+        st.markdown(
+            """
+Bits are embedded using **Quantization-Index Modulation (QIM)**:
+each coefficient's real part is moved to one of two interleaved quantization lattices,
+where the lattice index encodes a 0 or 1 bit.
+Conjugate partner coefficients are updated simultaneously to maintain Hermitian symmetry
+(required for real-valued inverse transforms).
+"""
+        )
+
+    with st.expander("Message Decoding"):
+        st.markdown(
+            """
+1. Load the stego image → compute FFT → fftshift
+2. Read the same coefficient positions used during encoding
+3. Quantize each real part with the same step δ — read the parity (0 or 1)
+4. Reassemble bytes → verify magic header `PSH1`
+5. Read payload length → extract payload → verify SHA-256 checksum
+6. Decode UTF-8 bytes → return message string
+"""
+        )
+
+    with st.expander("Limitations"):
+        st.markdown(
+            """
+- **PNG required for lossless round-trip.** JPEG recompression destroys embedded data.
+- **No encryption.** The message is stored as plain UTF-8 — anyone with PhaseShift can extract it.
+- **Academic only.** Not audited for security; do not use for sensitive data.
+- **Sensitivity.** Any editing, resizing, cropping, or recompression will likely corrupt the payload.
+- **Fixed coefficient selection.** The embedding positions are deterministic and public.
+"""
+        )
+        st.warning("Not suitable for production use. Academic demonstration only.")
+
+    with st.expander("Supported Formats"):
+        st.markdown(
+            """
+| Format | Recommended? | Notes |
+|--------|-------------|-------|
+| **PNG** | ✅ Yes | Lossless — required for reliable encode/decode |
+| JPEG | ⚠️ Input only | Lossy — safe as cover input; **do not use as stego output** |
+| BMP | ✅ OK | Lossless but large; PNG preferred |
+| TIFF | ✅ OK | Lossless variants work; PNG preferred |
+"""
+        )
+
+
+# ── Router ────────────────────────────────────────────────────────────────────
+if current_page == "Overview":
+    render_overview()
+elif current_page == "Encode":
+    render_encode()
+elif current_page == "Decode":
+    render_decode()
+elif current_page == "Analysis":
+    render_analysis()
+elif current_page == "Documentation":
+    render_documentation()
+else:
+    render_overview()
