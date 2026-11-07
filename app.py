@@ -396,7 +396,6 @@ def render_encode() -> None:
 
             # Metrics row
             psnr_val = "∞ dB" if math.isinf(m["psnr_db"]) else f"{m['psnr_db']:.2f} dB"
-            chk_hex = f"{m['payload_bytes']:,}"
             metrics_row([
                 ("Payload", f"{m['payload_bytes']:,}", "bytes"),
                 ("PSNR", psnr_val, "quality"),
@@ -590,7 +589,7 @@ def render_analysis() -> None:
         empty_state("No encoded result available. Run an encode first to see analysis.")
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
         if st.button("Go to Encode", type="primary"):
-            st.session_state["requested_page"] = "Encode"
+            st.session_state["page"] = "Encode"
             st.rerun()
         return
 
